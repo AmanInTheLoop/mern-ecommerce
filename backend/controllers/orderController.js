@@ -1,6 +1,7 @@
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const generateInvoiceNumber = require("../utils/generateInvoiceNumber");
 
 const createOrder = async (req, res, next) => {
   try {
@@ -74,6 +75,15 @@ const createOrder = async (req, res, next) => {
       paymentMethod,
     });
 
+    //Invoice
+    const invoice = await Invoice.create({
+      invoiceNumber: generateInvoiceNumber(),
+      order: order._id,
+      user: req.user._id,
+      amount: totalPrice,
+      paymentStatus: "pending",
+    });
+
     // Reduce stock
     for (const item of cart.items) {
       await Product.findByIdAndUpdate(item.product._id, {
@@ -91,6 +101,7 @@ const createOrder = async (req, res, next) => {
       success: true,
       message: "Order created successfully",
       order,
+      invoice,
     });
   } catch (error) {
     next(error);
