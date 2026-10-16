@@ -96,3 +96,122 @@ const createOrder = async (req, res, next) => {
     next(error);
   }
 };
+const getMyOrders = async (req, res, next) => {
+  try {
+    const orders = await Order.find({
+      user: req.user._id,
+    })
+      .populate("items.product", "name image")
+      .sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getOrderById = async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate("user", "name email")
+      .populate("items.product", "name images");
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // User can only access their own order
+    if (order.user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllOrders = async (req, res, next) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email")
+      .populate("items.product", "name price")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { orderStatus } = req.body;
+
+    const allowedStatuses = [
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
+
+    if (!allowedStatuses.includes(orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order status",
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        orderStatus,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Order status updated",
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  createOrder,
+  getMyOrders,
+  getOrderById,
+  getAllOrders,
+  updateOrderStatus,
+};
